@@ -46,113 +46,146 @@ This project aims to create a Drowsiness Detection System using Convolutional Ne
 4. Close the application by pressing 'q' on the keyboard.
 
 ## Program:
-
+### model.py
 ```python
-import streamlit as st
-from streamlit_webrtc import webrtc_streamer
-import av
-import cv2
+import os
+from keras.preprocessing import image
+import matplotlib.pyplot as plt 
 import numpy as np
-import mediapipe as mp
+from tensorflow.python.keras.utils.np_utils import to_categorical
+import random,shutil
+from keras.models import Sequential
+from keras.layers import Dropout,Conv2D,Flatten,Dense, MaxPooling2D, BatchNormalization
 from keras.models import load_model
-import webbrowser
-
-model = load_model("model.h5")
-label = np.load("labels.npy")
-holistic = mp.solutions.holistic
-hands = mp.solutions.hands
-holis = holistic.Holistic()
-drawing = mp.solutions.drawing_utils
-
-st.header("Emotion Based Music Recommender")
-
-if "run" not in st.session_state:
-    st.session_state["run"] = "true"
-
-try:
-    emotion = np.load("emotion.npy")[0]
-except:
-    emotion = ""
-
-if not (emotion):
-    st.session_state["run"] = "true"
-else:
-    st.session_state["run"] = "false"
-
-
-class EmotionProcessor:
-    def recv(self, frame):
-        frm = frame.to_ndarray(format="bgr24")
-
-        frm = cv2.flip(frm, 1)
-
-        res = holis.process(cv2.cvtColor(frm, cv2.COLOR_BGR2RGB))
-
-        lst = []
-
-        if res.face_landmarks:
-            for i in res.face_landmarks.landmark:
-                lst.append(i.x - res.face_landmarks.landmark[1].x)
-                lst.append(i.y - res.face_landmarks.landmark[1].y)
-
-            if res.left_hand_landmarks:
-                for i in res.left_hand_landmarks.landmark:
-                    lst.append(i.x - res.left_hand_landmarks.landmark[8].x)
-                    lst.append(i.y - res.left_hand_landmarks.landmark[8].y)
-            else:
-                for i in range(42):
-                    lst.append(0.0)
-
-            if res.right_hand_landmarks:
-                for i in res.right_hand_landmarks.landmark:
-                    lst.append(i.x - res.right_hand_landmarks.landmark[8].x)
-                    lst.append(i.y - res.right_hand_landmarks.landmark[8].y)
-            else:
-                for i in range(42):
-                    lst.append(0.0)
-
-            lst = np.array(lst).reshape(1, -1)
-
-            pred = label[np.argmax(model.predict(lst))]
-
-            print(pred)
-            cv2.putText(frm, pred, (50, 50), cv2.FONT_ITALIC, 1, (255, 0, 0), 2)
-
-            np.save("emotion.npy", np.array([pred]))
-
-        drawing.draw_landmarks(frm, res.face_landmarks, holistic.FACEMESH_TESSELATION,
-                               landmark_drawing_spec=drawing.DrawingSpec(color=(0, 0, 255), thickness=-1,
-                                                                         circle_radius=1),
-                               connection_drawing_spec=drawing.DrawingSpec(thickness=1))
-        drawing.draw_landmarks(frm, res.left_hand_landmarks, hands.HAND_CONNECTIONS)
-        drawing.draw_landmarks(frm, res.right_hand_landmarks, hands.HAND_CONNECTIONS)
-
-        ##############################
-
-        return av.VideoFrame.from_ndarray(frm, format="bgr24")
-
-
-lang = st.text_input("Language")
-singer = st.text_input("singer")
-music_player = st.selectbox("Music Player", ["YouTube", "Spotify"])
-
-
-if lang and singer and st.session_state["run"] != "false":
-    webrtc_streamer(key="key", desired_playing_state=True,
-                    video_processor_factory=EmotionProcessor)
-
-btn = st.button("Recommend me songs")
-if btn:
-    if not emotion:
-        st.warning("Please let me capture your emotion first")
-        st.session_state["run"] = "true"
+def generator(dir, gen=image.ImageDataGenerator(rescale=1./255), shuffle=True,batch_size=1,target_size=(24,24),class_mode='categorical' ):
+    return gen.flow_from_directory(dir,batch_size=batch_size,shuffle=shuffle,color_mode='grayscale',class_mode=class_mode,target_size=target_size)
+BS= 32
+TS=(24,24)
+train_batch= generator('data/train',shuffle=True, batch_size=BS,target_size=TS)
+valid_batch= generator('data/valid',shuffle=True, batch_size=BS,target_size=TS)
+SPE= len(train_batch.classes)//BS
+VS = len(valid_batch.classes)//BS
+print(SPE,VS)
+# img,labels= next(train_batch)
+# print(img.shape)
+model = Sequential([
+    Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(24,24,1)),
+    MaxPooling2D(pool_size=(1,1)),
+    Conv2D(32,(3,3),activation='relu'),
+    MaxPooling2D(pool_size=(1,1)),
+#32 convolution filters used each of size 3x3
+#again
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(1,1)),
+#64 convolution filters used each of size 3x3
+#choose the best features via pooling    
+#randomly turn neurons on and off to improve convergence
+    Dropout(0.25),
+#flatten since too many dimensions, we only want a classification output
+    Flatten(),
+#fully connected to get all relevant data
+    Dense(128, activation='relu'),
+#one more dropout for convergence' sake :) 
+    Dropout(0.5),
+#output a softmax to squash the matrix into output probabilities
+    Dense(2, activation='softmax')
+])
+model.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
+model.fit_generator(train_batch, validation_data=valid_batch,epochs=15,steps_per_epoch=SPE ,validation_steps=VS)
+model.save('models/cnnCat2.h5', overwrite=True)
+```
+### Drowsiness Detection.py
+```python
+import cv2
+import os
+from keras.models import load_model
+import numpy as np
+from pygame import mixer
+import time
+mixer.init()
+sound = mixer.Sound('alarm.wav')
+face = cv2.CascadeClassifier('haar cascade files\haarcascade_frontalface_alt.xml')
+leye = cv2.CascadeClassifier('haar cascade files\haarcascade_lefteye_2splits.xml')
+reye = cv2.CascadeClassifier('haar cascade files\haarcascade_righteye_2splits.xml')
+lbl=['Close','Open']
+model = load_model('models/cnnCat2.h5')
+path = os.getcwd()
+cap = cv2.VideoCapture(0)
+font = cv2.FONT_HERSHEY_COMPLEX_SMALL
+count=0
+score=0
+thicc=2
+rpred=[99]
+lpred=[99]
+while(True):
+    ret, frame = cap.read()
+    height,width = frame.shape[:2] 
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face.detectMultiScale(gray,minNeighbors=5,scaleFactor=1.1,minSize=(25,25))
+    left_eye = leye.detectMultiScale(gray)
+    right_eye =  reye.detectMultiScale(gray)
+    cv2.rectangle(frame, (0,height-50) , (200,height) , (0,0,0) , thickness=cv2.FILLED )
+    for (x,y,w,h) in faces:
+        cv2.rectangle(frame, (x,y) , (x+w,y+h) , (100,100,100) , 1 )
+    for (x,y,w,h) in right_eye:
+        r_eye=frame[y:y+h,x:x+w]
+        count=count+1
+        r_eye = cv2.cvtColor(r_eye,cv2.COLOR_BGR2GRAY)
+        r_eye = cv2.resize(r_eye,(24,24))
+        r_eye= r_eye/255
+        r_eye=  r_eye.reshape(24,24,-1)
+        r_eye = np.expand_dims(r_eye,axis=0)
+        rpred = model.predict(r_eye)
+        rpred = np.argmax(rpred, axis=1)
+        if(rpred[0]==1):
+            lbl='Open' 
+        if(rpred[0]==0):
+            lbl='Closed'
+        break
+    for (x,y,w,h) in left_eye:
+        l_eye=frame[y:y+h,x:x+w]
+        count=count+1
+        l_eye = cv2.cvtColor(l_eye,cv2.COLOR_BGR2GRAY)  
+        l_eye = cv2.resize(l_eye,(24,24))
+        l_eye= l_eye/255
+        l_eye=l_eye.reshape(24,24,-1)
+        l_eye = np.expand_dims(l_eye,axis=0)
+        lpred = model.predict(l_eye)
+        lpred = np.argmax(lpred, axis=1)
+        if(lpred[0]==1):
+            lbl='Open'   
+        if(lpred[0]==0):
+            lbl='Closed'
+        break
+    if(rpred[0]==0 and lpred[0]==0):
+        score=score+1
+        cv2.putText(frame,"Closed",(10,height-20), font, 1,(255,255,255),1,cv2.LINE_AA)
+    # if(rpred[0]==1 or lpred[0]==1):
     else:
-        if music_player == "YouTube":
-            webbrowser.open(f"https://www.youtube.com/results?search_query={lang}+{emotion}+song+{singer}")
-        elif music_player == "Spotify":
-            webbrowser.open(f"https://open.spotify.com/search/{lang} {emotion} song {singer}")
-        np.save("emotion.npy", np.array([""]))
-        st.session_state["run"] = "false"
+        score=score-1
+        cv2.putText(frame,"Open",(10,height-20), font, 1,(255,255,255),1,cv2.LINE_AA)
+    if(score<0):
+        score=0   
+    cv2.putText(frame,'Score:'+str(score),(100,height-20), font, 1,(255,255,255),1,cv2.LINE_AA)
+    if(score>15):
+        #person is feeling sleepy so we beep the alarm
+        cv2.imwrite(os.path.join(path,'image.jpg'),frame)
+        try:
+            sound.play()      
+        except:  # isplaying = False
+            pass
+        if(thicc<16):
+            thicc= thicc+2
+        else:
+            thicc=thicc-2
+            if(thicc<2):
+                thicc=2
+        cv2.rectangle(frame,(0,0),(width,height),(0,0,255),thicc) 
+    cv2.imshow('frame',frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+cap.release()
+cv2.destroyAllWindows()
 ```
 ## Output:
 
