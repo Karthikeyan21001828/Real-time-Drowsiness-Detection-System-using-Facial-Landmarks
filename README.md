@@ -25,32 +25,25 @@ This project aims to create a Drowsiness Detection System using Convolutional Ne
 
 ## Installation
 
-1. Clone the repository: git clone https://github.com/your/repo.git
+1. Clone the repository: git clone https://github.com/Karthikeyan21001828/Real-time-Drowsiness-Detection-System-using-Facial-Landmarks.git
+
 2. Install dependencies: pip install -r requirements.txt
+
 3. Download the pre-trained model file (cnnCat2.h5) or train a new model using the provided dataset.
+
 4. Ensure the required Haar cascade files (haarcascade_frontalface_alt.xml, haarcascade_lefteye_2splits.xml, haarcascade_righteye_2splits.xml) are available in the specified paths.
+
 5. Run the Drowsiness Detection.py script: python "Drowsiness Detection.py"
 
 ## Usage
 
-1. Run the Streamlit application
-   ```shell
-   streamlit run app.py
-   ```
+1. Execute the script, and the webcam feed will open.
 
-2. Access the application in your web browser at http://localhost:8501.
+2. The system will continuously monitor eye states and update the drowsiness score.
 
-3. Enter the desired language, singer, and music player preferences.
+3. A visual and audible alarm will be triggered if the drowsiness score exceeds the threshold.
 
-4. Allow access to your webcam.
-
-5. The application will start capturing your emotions in real-time.
-
-6. Click the "Recommend me songs" button to get song recommendations based on your captured emotions.
-
-7. A web browser window will open with search results on YouTube or Spotify, depending on your music player preference.
-
-8. Repeat the process by providing new inputs and capturing emotions again.
+4. Close the application by pressing 'q' on the keyboard.
 
 ## Program:
 
@@ -168,9 +161,4 @@ if btn:
 
 ## Result:
 
-The Emotional sensing music therapy project is a real-time application that captures users' emotions through their webcam and provides personalized song recommendations. By leveraging computer vision techniques and a pre-trained emotion classification model, the application accurately detects users' emotions and overlays them on the live video stream.
-
-With the Emotional sensing music therapy project, users can explore a personalized music playlist tailored to their emotions, language, and preferred artist. Whether they want to discover new songs or find comfort in familiar melodies, this project enhances the music listening experience by leveraging the power of computer vision and machine learning.
-
-The project is a valuable tool for music enthusiasts, researchers, and developers interested in emotion recognition, recommendation systems, and human-computer interaction.
-
+The system provides real-time monitoring of drowsiness levels, alerting users when they show signs of fatigue, especially in situations like driving where staying alert is crucial for safety. The visual and audible alarms aim to prompt users to take breaks or corrective actions to prevent potential accidents due to drowsiness.
