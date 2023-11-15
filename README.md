@@ -188,9 +188,9 @@ cap.release()
 cv2.destroyAllWindows()
 ```
 ## Output:
+![image](https://github.com/Karthikeyan21001828/Real-time-Drowsiness-Detection-System-using-Facial-Landmarks/assets/93427303/2186f245-1093-4bca-910e-32c6c8721972)
 
-![output1](output1.png)
-![output2](output2.png)
+![image](https://github.com/Karthikeyan21001828/Real-time-Drowsiness-Detection-System-using-Facial-Landmarks/assets/93427303/ad38c1be-f7dd-4782-bc4f-22881f74e60c)
 
 ## Result:
 
